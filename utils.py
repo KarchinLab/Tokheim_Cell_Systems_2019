@@ -192,7 +192,7 @@ def qqplot(data,
            **kwargs):
     """qq-plot with uniform distribution"""
     tmp = data.copy()
-    tmp.sort()
+    tmp.sort_values(inplace=True)
     dist_quant = np.arange(1, len(tmp)+1)/float(len(tmp)+1)
     if log:
         log_quant = -np.log10(dist_quant)
