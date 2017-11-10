@@ -12,4 +12,6 @@ dependencies:
 - matplotlib
 - pandas
 - scikit-learn
+- seaborn
+- jupyter
 - jupyterlab
