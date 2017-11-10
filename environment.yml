@@ -1,0 +1,15 @@
+name: CHASM2_jupyter
+channels:
+- bioconda
+- conda-forge
+- defaults
+- r
+dependencies:
+- r-essentials
+- numpy
+- scipy
+- rpy2
+- matplotlib
+- pandas
+- scikit-learn
+- jupyterlab
