@@ -5,6 +5,7 @@ channels:
 - defaults
 - r
 dependencies:
+- r
 - r-essentials
 - numpy
 - scipy
@@ -15,3 +16,5 @@ dependencies:
 - seaborn
 - jupyter
 - jupyterlab
+- pip:
+  - matplotlib-venn
