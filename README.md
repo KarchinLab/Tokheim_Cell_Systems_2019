@@ -1,6 +1,6 @@
-# CHASM2
+# CHASMplus
 
-Sequencing studies have statistically implicated genetic drivers of human cancers by distinguishing these from the expected random accumulation of somatic mutations. However, prior work has coarsely focused on driver genes or regions, largely avoiding prediction of individual mutations. Here, we develop and rigorously validate CHASM2 to predict individual driver somatic missense mutations and show it exceeds state-of-the-art performance. Applied to 32 cancer types, CHASM2 identifies 3,527 unique drivers with four times higher prevalence of rare drivers than previously calculated. Our results indicate a complex relationship between the driver landscape of somatic missense mutations and each cancer type, some reveal a prominent role for rare drivers while others rely on common drivers and are already saturating discovery. We show experimentally that CHASM2 discriminates radiosensitivity mutations within the ATM gene, a phenotype of potential clinical relevance. The prevalence of rare cancer drivers has implications for future interpretation of cancer genomes and genome-driven oncology
+Sequencing studies have statistically implicated genetic drivers of human cancers by distinguishing these from the expected random accumulation of somatic mutations. However, prior work has coarsely focused on driver genes or regions, largely avoiding prediction of individual mutations. Here, we develop and rigorously validate CHASMplus to predict individual driver somatic missense mutations and show it exceeds state-of-the-art performance. Applied to 32 cancer types, CHASMplus identifies 3,527 unique drivers with four times higher prevalence of rare drivers than previously calculated. Our results indicate a complex relationship between the driver landscape of somatic missense mutations and each cancer type, some reveal a prominent role for rare drivers while others rely on common drivers and are already saturating discovery. We show experimentally that CHASMplus discriminates radiosensitivity mutations within the ATM gene, a phenotype of potential clinical relevance. The prevalence of rare cancer drivers has implications for future interpretation of cancer genomes and genome-driven oncology
 
 ## Jupyter notebooks
 
@@ -15,11 +15,11 @@ We recommend you install all of the depdencies through conda. Please see the min
 Next, install the dependencies needed to run these notebooks by the following commands:
 
 ```bash
-$ conda env create -f environment.yml  # create environment for CHASM2
-$ source activate CHASM2_jupyter  # activate environment for CHASM2 jupyter analysis
+$ conda env create -f environment.yml  # create environment for CHASMplus
+$ source activate CHASMplus_jupyter  # activate environment for CHASMplus jupyter analysis
 ```
 
-Remember to always activate the CHASM2_jupyter environment in conda!
+Remember to always activate the CHASMplus_jupyter environment in conda!
 
 ## Runing jupyter notebooks
 

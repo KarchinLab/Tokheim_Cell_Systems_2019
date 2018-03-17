@@ -1,4 +1,4 @@
-name: CHASM2_jupyter
+name: CHASMplus_jupyter
 channels:
 - bioconda
 - conda-forge

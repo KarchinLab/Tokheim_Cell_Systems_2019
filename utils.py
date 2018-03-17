@@ -53,8 +53,12 @@ def read_result(cancer_type, only_significant=False):
 
 def read_all_results(base_dir='CHASM2/data/aggregated_results'):
     """Reads all of the results"""
-    cancer_types = [os.path.basename(f)[:-4] for f in glob.glob('{0}/*.txt'.format(base_dir)) if 'PANCAN' not in f]
+    # read in pan-cancer 
     merged_df = read_result('PANCAN')
+    merged_df['PANCAN_flag'] = (merged_df['PANCAN']<=0.01).astype(int)
+    
+    # add cancer types
+    cancer_types = [os.path.basename(f)[:-4] for f in glob.glob('{0}/*.txt'.format(base_dir)) if 'PANCAN' not in f]
     for c in cancer_types:
         tmp = read_result(c)
         tmp[c+'_flag'] = (tmp[c]<=.01).astype(int)
@@ -80,6 +84,54 @@ def read_all_rarity_results(base_dir='CHASM2/data/rarity_analysis/'):
     concat_df = concat_df.fillna(0)
     return concat_df
 
+def read_all_rarity_count(base_dir='CHASM2/data/rarity_analysis/'):
+    """Reads all of the results"""
+    cancer_types = [os.path.basename(f)[:-4] for f in glob.glob('{0}/*.txt'.format(base_dir))]
+    result_list = []
+    for c in cancer_types:
+        tmp_path = os.path.join(base_dir, c+'.txt')
+        tmp = pd.read_table(tmp_path)
+        counts = tmp.groupby('category')['number of mutations'].sum()
+        counts.name = c
+        result_list.append(counts)
+    concat_df = pd.concat(result_list, axis=1)
+    concat_df = concat_df.fillna(0)
+    return concat_df
+
+############################
+# Read significant mutations from MSK-IMPACT
+############################
+def read_msk_impact(chasm2_path, maf_path):
+    # read chasm2
+    useful_cols = ['gene', 'UID', 'ID', 'driver score', 'CHASM2', 'CHASM2_genome', 'CHASM2_pval',
+                   'CHASM2_genome_pval', 'CHASM2_qval', 'CHASM2_genome_qval']
+    df = pd.read_table(chasm2_path, usecols=useful_cols)
+
+    # read mutations
+    mut_df = pd.read_table(maf_path)
+    mut_df['UID'] = range(len(mut_df))
+
+    # calculate mutation recurrence
+    counts = mut_df.groupby(['Hugo_Symbol', 'HGVSp_Short'])['Tumor_Sample_Barcode'].nunique().reset_index(name='recurrence')
+    mut_df = pd.merge(mut_df, counts, on=['Hugo_Symbol', 'HGVSp_Short'], how='left')
+
+    # merge in the mutation data
+    df = pd.merge(df, mut_df[['UID', 'Hugo_Symbol', 'Transcript_ID', 'HGVSp_Short', 'Protein_position', 'recurrence']], on='UID', how='left')
+    chasm_cols = ['CHASM2', 'CHASM2_genome', 'CHASM2_pval', 'CHASM2_genome_pval', 'CHASM2_qval', 'CHASM2_genome_qval']
+    mut_df = pd.merge(mut_df, df, on=['Hugo_Symbol', 'Transcript_ID', 'HGVSp_Short', 'recurrence'], how='left')
+    
+    # get all of the significant mutations
+    df['Protein_change'] = df['Hugo_Symbol'] + '_' + df['Transcript_ID'] + '_' + df['HGVSp_Short']
+    mut_df['Protein_change'] = mut_df['Hugo_Symbol'] + '_' + mut_df['Transcript_ID'] + '_' + mut_df['HGVSp_Short']
+    is_signif = df['CHASM2_genome_qval']<=0.01
+    #signif_df = mut_df[mut_df.Protein_change.isin(df[is_signif]['Protein_change'])].drop_duplicates(['Hugo_Symbol', 'HGVSp_Short'])
+    signif_df = mut_df.drop_duplicates(['Hugo_Symbol', 'HGVSp_Short'])
+
+    # fix x/y suffixes
+    rename_dict = {'Protein_position_x': 'Protein_position'}
+    signif_df = signif_df.rename(columns=rename_dict)
+    
+    return signif_df
 
 ############################
 # Functions for ATM analysis
