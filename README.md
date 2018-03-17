@@ -31,4 +31,4 @@ $ jupyter lab
 
 ## Citation
 
-You will update the citation information upon publication.
+We will update the citation information upon publication.
