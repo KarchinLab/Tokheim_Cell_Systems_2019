@@ -30,12 +30,12 @@ def process_cgc(path):
 def read_result(cancer_type, only_significant=False):
     """Read CHASM2 results"""
     # read mutations
-    mut_df = pd.read_table('CHASM2/data/aggregated_results/{0}.maf'.format(cancer_type))
+    mut_df = pd.read_table('CHASMplus/data/aggregated_results/{0}.maf'.format(cancer_type))
     mut_df['UID'] = range(len(mut_df))
 
     # read CHASM2 result
     useful_cols = ['UID', 'ID', 'CHASM2', 'CHASM2_genome', 'CHASM2_pval', 'CHASM2_genome_pval', 'CHASM2_qval', 'CHASM2_genome_qval']
-    result_df = pd.read_table('CHASM2/data/aggregated_results/{0}.txt'.format(cancer_type), usecols=useful_cols)
+    result_df = pd.read_table('CHASMplus/data/aggregated_results/{0}.txt'.format(cancer_type), usecols=useful_cols)
 
     # merge mutation information into CHASM2 result
     mut_cols = ['UID', 'Hugo_Symbol', 'Transcript_ID', 'Protein_position', 'HGVSp_Short', 'CODE']
@@ -51,7 +51,7 @@ def read_result(cancer_type, only_significant=False):
 
     return result_df
 
-def read_all_results(base_dir='CHASM2/data/aggregated_results'):
+def read_all_results(base_dir='CHASMplus/data/aggregated_results'):
     """Reads all of the results"""
     # read in pan-cancer 
     merged_df = read_result('PANCAN')
@@ -69,7 +69,7 @@ def read_all_results(base_dir='CHASM2/data/aggregated_results'):
 ############################
 # Function to read rarity result
 ############################
-def read_all_rarity_results(base_dir='CHASM2/data/rarity_analysis/'):
+def read_all_rarity_results(base_dir='CHASMplus/data/rarity_analysis/'):
     """Reads all of the results"""
     cancer_types = [os.path.basename(f)[:-4] for f in glob.glob('{0}/*.txt'.format(base_dir))]
     result_list = []
@@ -84,7 +84,7 @@ def read_all_rarity_results(base_dir='CHASM2/data/rarity_analysis/'):
     concat_df = concat_df.fillna(0)
     return concat_df
 
-def read_all_rarity_count(base_dir='CHASM2/data/rarity_analysis/'):
+def read_all_rarity_count(base_dir='CHASMplus/data/rarity_analysis/'):
     """Reads all of the results"""
     cancer_types = [os.path.basename(f)[:-4] for f in glob.glob('{0}/*.txt'.format(base_dir))]
     result_list = []
