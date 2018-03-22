@@ -29,6 +29,11 @@ Using the terminal, change directories to where you download this repository. Th
 $ jupyter lab
 ```
 
+## Data
+
+The notebooks use data and results available [here](http://karchinlab.org/data/CHASMplus/Tokheim_NatGen_2018.tar.gz).
+The scores for each method in the benchmark are found in the `CHASMplus/data/benchmark` folder.
+
 ## Citation
 
 We will update the citation information upon publication.
