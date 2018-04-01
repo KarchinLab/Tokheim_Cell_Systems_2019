@@ -31,7 +31,7 @@ $ jupyter lab
 
 ## Data
 
-The notebooks use data and results available [here](http://karchinlab.org/data/CHASMplus/Tokheim_NatGen_2018.tar.gz).
+The notebooks use data and results available [here](http://karchinlab.org/data/CHASMplus/Tokheim_NatComm_2018.tar.gz).
 Place the data in the top-level directory of this repository.
 The scores for each method in the benchmark are found in the `CHASMplus/data/benchmark` folder.
 
