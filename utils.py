@@ -3,8 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import roc_curve, auc, average_precision_score,precision_recall_curve
+from matplotlib_venn import venn2, venn2_circles
 import glob
 import os
+
+# list of methods
+methods = ['VEST', 'CADD', 'Polyphen2_hdiv', 'Polyphen2_hvar', 'SIFT', 'MutationAssessor', 'REVEL', 'MCAP',
+           'ParsSNP', 'CHASM', 'raw CHASMplus', 'gwCHASMplus', 'CanDrA', 'CanDrA plus', 'TransFIC', 'FATHMM']
 
 def process_cgc(path):
     """Get the list of CGC genes with small somatic variants."""
@@ -27,27 +32,36 @@ def process_cgc(path):
 ############################
 # Function to read CHASM2 result
 ############################
-def read_result(cancer_type, only_significant=False):
+def read_result(cancer_type, 
+                only_significant=False,
+                change_col_name=True,
+                base_dir='CHASMplus/data/aggregated_results'):
     """Read CHASM2 results"""
     # read mutations
-    mut_df = pd.read_table('CHASMplus/data/aggregated_results/{0}.maf'.format(cancer_type))
+    mut_df = pd.read_table('{0}/{1}.maf'.format(base_dir, cancer_type))
     mut_df['UID'] = range(len(mut_df))
+    
+    # some minor renaming of columns
+    rename_dict = {'Protein_Change': 'HGVSp_Short'}
+    mut_df = mut_df.rename(columns=rename_dict)
 
     # read CHASM2 result
     useful_cols = ['UID', 'ID', 'CHASM2', 'CHASM2_genome', 'CHASM2_pval', 'CHASM2_genome_pval', 'CHASM2_qval', 'CHASM2_genome_qval']
-    result_df = pd.read_table('CHASMplus/data/aggregated_results/{0}.txt'.format(cancer_type), usecols=useful_cols)
+    result_df = pd.read_table('{0}/{1}.txt'.format(base_dir, cancer_type), usecols=useful_cols)
 
     # merge mutation information into CHASM2 result
-    mut_cols = ['UID', 'Hugo_Symbol', 'Transcript_ID', 'Protein_position', 'HGVSp_Short', 'CODE']
+    mut_cols = list(set(['UID', 'Hugo_Symbol', 'Transcript_ID', 'Protein_position', 'HGVSp_Short', 'CODE']) & set(mut_df.columns))
     result_df = pd.merge(result_df, mut_df[mut_cols], on='UID', how='left')
 
     if only_significant:
-        result_df = result_df.rename(columns={'CHASM2_genome_qval': 'gwCHASM2 qvalue'})
+        if change_col_name:
+            result_df = result_df.rename(columns={'CHASM2_genome_qval': 'gwCHASM2 qvalue'})
         # merge full CHASM2 result into MAF dataframe
         result_df = pd.merge(mut_df, result_df, on=['Hugo_Symbol', 'Transcript_ID', 'HGVSp_Short'], how='left')
         result_df = result_df[result_df['gwCHASM2 qvalue']<=0.01]
     else:
-        result_df = result_df.rename(columns={'CHASM2_genome_qval': cancer_type})
+        if change_col_name:
+            result_df = result_df.rename(columns={'CHASM2_genome_qval': cancer_type})
 
     return result_df
 
@@ -64,6 +78,20 @@ def read_all_results(base_dir='CHASMplus/data/aggregated_results'):
         tmp[c+'_flag'] = (tmp[c]<=.01).astype(int)
         merged_df = pd.merge(merged_df, tmp[['Hugo_Symbol', 'Transcript_ID', 'HGVSp_Short', c, c+'_flag']],
                              on=['Hugo_Symbol', 'Transcript_ID', 'HGVSp_Short'], how='left')
+    
+    # create a flag for significant in any cancer type specific analysis
+    cancer_type_flags = [
+        'ACC_flag','BLCA_flag', 'BRCA_flag', 'CESC_flag', 'CHOL_flag', 
+        'COAD_flag', 'DLBC_flag', 'ESCA_flag', 'GBM_flag', 'HNSC_flag',
+        'KICH_flag', 'KIRC_flag', 'KIRP_flag', 'LAML_flag', 'LGG_flag', 
+        'LIHC_flag', 'LUAD_flag', 'LUSC_flag', 'MESO_flag', 'OV_flag',
+        'PAAD_flag', 'PCPG_flag', 'PRAD_flag', 'READ_flag', 'SARC_flag', 
+        'STAD_flag', 'TGCT_flag', 'THCA_flag', 'THYM_flag', 'UCEC_flag', 
+        'UCS_flag', 'UVM_flag' 
+    ]
+    is_signif_cancer_type = (merged_df[cancer_type_flags].sum(axis=1)>=1).astype(int)
+    merged_df['Any_cancer_type_flag'] = is_signif_cancer_type
+    
     return merged_df
 
 ############################
@@ -124,8 +152,8 @@ def read_msk_impact(chasm2_path, maf_path):
     df['Protein_change'] = df['Hugo_Symbol'] + '_' + df['Transcript_ID'] + '_' + df['HGVSp_Short']
     mut_df['Protein_change'] = mut_df['Hugo_Symbol'] + '_' + mut_df['Transcript_ID'] + '_' + mut_df['HGVSp_Short']
     is_signif = df['CHASM2_genome_qval']<=0.01
-    #signif_df = mut_df[mut_df.Protein_change.isin(df[is_signif]['Protein_change'])].drop_duplicates(['Hugo_Symbol', 'HGVSp_Short'])
-    signif_df = mut_df.drop_duplicates(['Hugo_Symbol', 'HGVSp_Short'])
+    signif_df = mut_df[mut_df.Protein_change.isin(df[is_signif]['Protein_change'])].drop_duplicates(['Hugo_Symbol', 'HGVSp_Short'])
+    #signif_df = mut_df.drop_duplicates(['Hugo_Symbol', 'HGVSp_Short'])
 
     # fix x/y suffixes
     rename_dict = {'Protein_position_x': 'Protein_position'}
@@ -192,16 +220,19 @@ def roc_plot(data, methods, other_methods):
         plt.ylabel('True positive rate')
 
     # plot the top methods
+    zorder = 10
     for method in methods:
         if method == 'CanDrA.plus': method = 'CanDrA plus'
         pred = data[method].astype(float).dropna()
         fpr, tpr, thresholds = roc_curve(y[pred.index], pred)
         myauc = auc(fpr, tpr)
         plt.plot(fpr, tpr,
-                 label='{0} (area = {1:0.3f})'.format(method, myauc))
+                 label='{0} (area = {1:0.3f})'.format(method, myauc),
+                 zorder=zorder)
         plt.legend(loc='best')
         plt.xlabel('False positive rate')
         plt.ylabel('True positive rate')
+        zorder -= 1
 
     # format axis
     plt.gca().xaxis.set_ticks_position('bottom')
@@ -209,14 +240,106 @@ def roc_plot(data, methods, other_methods):
 
 def top5(data):
     """Figure out the top 5 best beforming methods."""
-    replace_dict = {'CHASM2_genome': 'CHASM2', 'CanDrA.plus': 'CanDrA',
+    replace_dict = {'gwCHASMplus': 'raw CHASMplus', 'CanDrA.plus': 'CanDrA',
                     'Polyphen2_hdiv': 'Polyphen2', 'Polyphen2_hvar': 'Polyphen2',
+                     #'CHASM2': 'raw CHASMplus',
+                    #'gwCHASM2': 'gwCHASMplus'
+                    }
+    replace_dict2 = {#'CHASM2_genome': 'raw CHASMplus', 
+                     'CanDrA.plus': 'CanDrA plus',
+                    '1-SIFT': 'SIFT', '1-CHASM': 'CHASM', 
+                    #'CHASM2': 'raw CHASMplus',
+                    #'gwCHASM2': 'gwCHASMplus'
                     }
     data['method'] = data.method.replace(replace_dict)
-    tmp_top_methods = data.groupby('method')['auc'].max().sort_values(ascending=False).head(5).index.tolist()
-    top_methods = data[data.method.isin(tmp_top_methods)].sort_values('auc', ascending=False).index.tolist()
+    tmp_top_methods = data.groupby('method')['auc'].max().sort_values(ascending=False).head(5).index.to_series().replace(replace_dict2).tolist()
+    top_methods = data[data.method.isin(tmp_top_methods)].sort_values('auc', ascending=False).index.to_series().replace(replace_dict2).tolist()
     return top_methods
 
+def fetch_methods(path):
+    comp_df = pd.read_table(path)
+    top_methods = top5(comp_df)
+    other_methods = list(set(methods) - set(top_methods))
+    return top_methods, other_methods
+    
+
+def pr_curve(data, methods, other_methods):
+    """Create a precision recall curve of methods."""
+    y = data['y']
+    # plot the low performing methods
+    for method in other_methods:
+        if method == 'CanDrA.plus': method = 'CanDrA plus'
+        pred = data[method].astype(float).dropna()
+        prec, recall, thresholds = precision_recall_curve(y[pred.index], pred)
+        myauc = average_precision_score(y[pred.index], pred)
+        #myauc = auc(recall[:-1], prec[:-1])
+        plt.plot(recall[:-1], prec[:-1],
+                 color='lightgray')
+        plt.xlabel('Recall')
+        plt.ylabel('Precision')
+
+    # plot the top methods
+    zorder = 10
+    for method in methods:
+        if method == 'CanDrA.plus': method = 'CanDrA plus'
+        pred = data[method].astype(float).dropna()
+        prec, recall, thresholds = precision_recall_curve(y[pred.index], pred)
+        myauc = average_precision_score(y[pred.index], pred)
+        #myauc = auc(recall[:-1], prec[:-1])
+        plt.plot(recall[:-1], prec[:-1], 
+                 label='{0} (area = {1:0.3f})'.format(method, myauc),
+                 zorder=zorder)
+        plt.legend(loc='best')
+        plt.xlabel('Recall')
+        plt.ylabel('Precision')
+        zorder -= 1
+
+    # format axis
+    plt.gca().xaxis.set_ticks_position('bottom')
+    plt.gca().yaxis.set_ticks_position('left')
+
+    
+def box_plot_with_significance(x, y, **kwargs):
+    """Creates a Facet grid of boxplots with annotations on whether differes 
+    are significant.
+    """
+    # take in data
+    data = kwargs['data']
+    signif = kwargs['signif']
+    facet_var = data.loc[x.index, 'var'].iloc[0]
+    
+    # establish significance
+    miss_pvalue = signif.loc[signif.variable==facet_var, 'wt vs missense p-value'].iloc[0]
+    lof_pvalue = signif.loc[signif.variable==facet_var, 'wt vs lof p-value'].iloc[0]
+    miss_text = 'ns'
+    if miss_pvalue <= 0.05: miss_text = '*'
+    if miss_pvalue <= 0.01: miss_text += '*'
+    if miss_pvalue <= 0.001: miss_text += '*'
+    lof_text = 'ns'
+    if lof_pvalue <= 0.05: lof_text = '*'
+    if lof_pvalue <= 0.01: lof_text += '*'
+    if lof_pvalue <= 0.001: lof_text += '*'
+    
+    # set up max y value
+    max_val = y.max() + (y.max() - y.min()) * .05
+    
+    # do missense vs control
+    h = (y.max() - y.min()) * .05
+    x1, x2 = 0, 1
+    plt.plot([x1, x1, x2, x2], [max_val, max_val+h, max_val+h, max_val], lw=1.5, color='black')
+    if '*' in miss_text:
+        plt.text((x1+x2)*.5, max_val, miss_text, ha='center', va='bottom', color='black', fontsize=16)
+    else:
+        plt.text((x1+x2)*.5, max_val+1.2*h, miss_text, ha='center', va='bottom', color='black')
+    
+    # do lof vs control
+    max_val = max_val + 3*h
+    x1, x2 = 0, 2
+    plt.plot([x1, x1, x2, x2], [max_val, max_val+h, max_val+h, max_val], lw=1.5, color='black')
+    if '*' in lof_text:
+        plt.text((x1+x2)*.5, max_val, lof_text, ha='center', va='bottom', color='black', fontsize=16)
+    else:
+        plt.text((x1+x2)*.5, max_val+1.2*h, lof_text, ha='center', va='bottom', color='black')
 
 ############################
 # Functions for a p-value QQ plot
@@ -299,3 +422,70 @@ def mean_log_fold_change(data):
     dist_quant = np.arange(1, len(tmp)+1)/float(len(tmp))
     mlfc = np.mean(np.abs(np.log2(tmp/dist_quant)))
     return mlfc
+
+######################
+# Venn diagram plot
+######################
+
+def venn_diagram(set1, set2, name1, name2, title=''):
+    len_intersect = len(set(set1) & set(set2))
+    len_set1 = len(set1)
+    len_set2 = len(set2)
+    overlap = (len_set1 - len_intersect, len_set2 - len_intersect, len_intersect)
+
+    # plot venn diagram
+    with sns.plotting_context('paper', font_scale=1.4):
+        venn2(subsets=overlap, set_labels=(name1, name2))
+        venn2_circles(subsets=overlap, linestyle='solid', linewidth=.75)
+        plt.title(title, size=16)
+        
+    return overlap
+
+########################
+# Read in OncoKB
+########################
+
+def read_oncokb(path='CHASMplus/data/misc/oncokb_4_3_2017.txt'):
+    """Read in the OncoKB mutations"""
+    oncokb = pd.read_table(path)
+    oncokb['HGVSp_Short'] = 'p.' + oncokb['Alteration']
+    oncokb = oncokb.rename(columns={'Gene': 'Hugo_Symbol'})
+    oncokb['OncoKB'] = oncokb['Oncogenicity'].isin(['Oncogenic', 'Likely Oncogenic']).astype(int)
+    return oncokb
+
+
+########################
+# stat funcs
+########################
+def cummin(x):
+    """A python implementation of the cummin function in R"""
+    for i in range(1, len(x)):
+        if x[i-1] < x[i]:
+            x[i] = x[i-1]
+    return x
+
+
+def bh_fdr(pval):
+    """A python implementation of the Benjamani-Hochberg FDR method.
+    This code should always give precisely the same answer as using
+    p.adjust(pval, method="BH") in R.
+    Parameters
+    ----------
+    pval : list or array
+        list/array of p-values
+    Returns
+    -------
+    pval_adj : np.array
+        adjusted p-values according the benjamani-hochberg method
+    """
+    pval_array = np.array(pval)
+    sorted_order = np.argsort(pval_array)
+    original_order = np.argsort(sorted_order)
+    pval_array = pval_array[sorted_order]
+    
+    # calculate the needed alpha
+    n = float(len(pval))
+    pval_adj = np.zeros(int(n))
+    i = np.arange(1, int(n)+1, dtype=float)[::-1]  # largest to smallest
+    pval_adj = np.minimum(1, cummin(n/i * pval_array[::-1]))[::-1]
+    return pval_adj[original_order]
