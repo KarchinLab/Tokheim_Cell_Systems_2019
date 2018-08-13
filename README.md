@@ -1,6 +1,8 @@
 # CHASMplus
 
-Sequencing studies have statistically implicated genetic drivers of human cancers by distinguishing these from the expected random accumulation of somatic mutations. However, prior work has coarsely focused on driver genes or regions, largely avoiding prediction of individual mutations. Here, we develop and rigorously validate CHASMplus to predict individual driver somatic missense mutations and show it exceeds state-of-the-art performance. Applied to 32 cancer types, CHASMplus identifies 3,527 unique drivers with four times higher prevalence of rare drivers than previously calculated. Our results indicate a complex relationship between the driver landscape of somatic missense mutations and each cancer type, some reveal a prominent role for rare drivers while others rely on common drivers and are already saturating discovery. The prevalence of rare cancer drivers has implications for future interpretation of cancer genomes and genome-driven oncology
+With the ever-growing pace of DNA sequencing of human tumors, the total number of detected mutations in cancer continues to accelerate. However, only a few mutations in each tumor may actually “drive” the growth of cancer, some of which can have value for diagnostic, prognostic, or therapeutic purposes. Based on a new rigorous statistical analysis of The Cancer Genome Atlas (TCGA), we find a prominent emerging role for rare missense mutations predicted to be “drivers” of cancer, which may have potential implications for genome-driven precision oncology, since rare driver mutations that are putatively actionable could be newly observed in a patient, thus requiring personalized modeling and assessment. To extend beyond the TCGA, we provide a systematic resource to assess such newly observed missense mutations as cancer drivers. Lastly, we assess the driver landscape of human cancers and find that discovery for some cancer types are already approaching saturation.
+
+In this Jupyter Notebook, we present a new statistically rigorous method, CHASMplus, for predicting the driver status of missense mutations. After careful benchmarking, we applied CHASMplus to 8,657 sequenced tumors from The Cancer Genome Atlas (TCGA) spanning 32 types of cancer. We explore the role for rare driver missense mutations in cancer and, when possible, relate predictions to supporting functional evidence. 
 
 ## Jupyter notebooks
 
@@ -31,7 +33,7 @@ $ jupyter lab
 
 ## Data
 
-The notebooks use data and results available [here](http://karchinlab.org/data/CHASMplus/Tokheim_NatComm_2018.tar.gz).
+The notebooks use data and results available [here](http://karchinlab.org/data/CHASMplus/Tokheim_2018.tar.gz).
 Place the data in the top-level directory of this repository.
 The scores for each method in the benchmark are found in the `CHASMplus/data/benchmark` folder.
 
