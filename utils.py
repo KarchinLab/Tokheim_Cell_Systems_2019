@@ -3,15 +3,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import roc_curve, auc, average_precision_score,precision_recall_curve
-from matplotlib_venn import venn2, venn2_circles
+from matplotlib_venn import venn2, venn2_circles, venn3, venn3_circles
 import glob
 import os
+import bisect
 
 # list of methods
 methods = ['VEST', 'CADD', 'Polyphen2_hdiv', 'Polyphen2_hvar', 'SIFT', 'MutationAssessor', 'REVEL', 'MCAP',
            'ParsSNP', 'CHASM', 'raw CHASMplus', 'gwCHASMplus', 'CanDrA', 'CanDrA plus', 'TransFIC', 'FATHMM']
 
-def process_cgc(path):
+def process_cgc(path, return_dataframe=False):
     """Get the list of CGC genes with small somatic variants."""
     # read in data
     df = pd.read_table(path)
@@ -24,7 +25,10 @@ def process_cgc(path):
     df = df[is_small & is_somatic].copy()
 
     # get gene names
-    cgc_genes = df['Gene Symbol'].tolist()
+    if not return_dataframe:
+        cgc_genes = df['Gene Symbol'].tolist()
+    else:
+        cgc_genes = df
 
     return cgc_genes
 
@@ -441,6 +445,49 @@ def venn_diagram(set1, set2, name1, name2, title=''):
         
     return overlap
 
+def venn_diagram3(set1, set2, set3, name1, name2, name3, title='', ax=None):
+    # make sure to convert to set object
+    set1 = set(set1)
+    set2 = set(set2)
+    set3 = set(set3)
+    
+    # do all possible intersections
+    intersect_12 = set(set1) & set(set2)
+    intersect_13 = set(set1) & set(set3)
+    intersect_23 = set(set2) & set(set3)
+    full_intersect = set(set1) & set(set2) & set(set3)
+    
+    # figure out number only specific to one set
+    len_set1_specific = len(set1 - set2 - set3)
+    len_set2_specific = len(set2 - set1 - set3)
+    len_set3_specific = len(set3 - set1 - set2)
+    
+    # Figure out length of full intersect
+    len_full_intersect = len(full_intersect)
+    
+    # figure out length of two-set specific overlaps
+    len_set12 = len(intersect_12 - full_intersect)
+    len_set13 = len(intersect_13 - full_intersect)
+    len_set23 = len(intersect_23 - full_intersect)
+
+    # create overlap object
+    #overlap = (len_set1 - len_intersect, len_set2 - len_intersect, len_intersect)
+    overlap = {'100': len_set1_specific, '010': len_set2_specific, '001': len_set3_specific,
+               '110': len_set12, '101': len_set13, '011': len_set23,
+               '111': len_full_intersect}
+
+    # plot venn diagram
+    with sns.plotting_context('notebook', font_scale=1.0):
+        if ax:
+            venn3(subsets=overlap, set_labels=(name1, name2, name3), ax=ax)
+            venn3_circles(subsets=overlap, linestyle='solid', linewidth=.75, ax=ax)
+        else:
+            venn3(subsets=overlap, set_labels=(name1, name2, name3))
+            venn3_circles(subsets=overlap, linestyle='solid', linewidth=.75)            
+        plt.title(title, size=16)
+        
+    return overlap
+
 ########################
 # Read in OncoKB
 ########################
@@ -489,3 +536,59 @@ def bh_fdr(pval):
     i = np.arange(1, int(n)+1, dtype=float)[::-1]  # largest to smallest
     pval_adj = np.minimum(1, cummin(n/i * pval_array[::-1]))[::-1]
     return pval_adj[original_order]
+
+def compute_p_value(scores, null_p_values):
+    """Get the p-value for each score by examining the list null distribution
+    where scores are obtained by a certain probability.
+    NOTE: uses score2pval function
+    Parameters
+    ----------
+    scores : pd.Series
+        series of observed scores
+    null_p_values: pd.Series
+        Empirical null distribution, index are scores and values are p values
+    Returns
+    -------
+    pvals : pd.Series
+        Series of p values for scores
+    """
+    num_scores = len(scores)
+    pvals = pd.Series(np.zeros(num_scores))
+    null_p_val_scores = list(reversed(null_p_values.index.tolist()))
+    #null_p_values = null_p_values.ix[null_p_val_scores].copy()
+    null_p_values.sort_values(inplace=True, ascending=False)
+    pvals = scores.apply(lambda x: score2pval(x, null_p_val_scores, null_p_values))
+    return pvals
+
+
+def score2pval(score, null_scores, null_pvals):
+    """Looks up the P value from the empirical null distribution based on the provided
+    score.
+    NOTE: null_scores and null_pvals should be sorted in ascending order.
+    Parameters
+    ----------
+    score : float
+        score to look up P value for
+    null_scores : list
+        list of scores that have a non-NA value
+    null_pvals : pd.Series
+        a series object with the P value for the scores found in null_scores
+    Returns
+    -------
+    pval : float
+        P value for requested score
+    """
+    # find position in simulated null distribution
+    pos = bisect.bisect_right(null_scores, score)
+
+    # if the score is beyond any simulated values, then report
+    # a p-value of zero
+    if pos == null_pvals.size and score > null_scores[-1]:
+        return 0
+    # condition needed to prevent an error
+    # simply get last value, if it equals the last value
+    elif pos == null_pvals.size:
+        return null_pvals.iloc[pos-1]
+    # normal case, just report the corresponding p-val from simulations
+    else:
+        return null_pvals.iloc[pos]
